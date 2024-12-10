@@ -290,6 +290,12 @@
       "
     ></div>
     <script>
+      // Check if the device supports touch events (mobile devices)
+      const isTouchDevice =
+        "ontouchstart" in window ||
+        navigator.maxTouchPoints > 0 ||
+        navigator.msMaxTouchPoints > 0;
+
       function toggleMenu() {
         const controls = document.getElementById("collapsable-menu");
         if (controls.style.display !== "inline-block") {
@@ -413,6 +419,18 @@
         document.getElementById("toggle-populacao").disabled = false;
       }
 
+      const circle_radius = isTouchDevice
+        ? [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            15,
+            4, // Zoom level where it starts to increase
+            30,
+            50, // Size at zoom level 17
+          ]
+        : 4;
+
       // Função para adicionar a camada de salas comerciais
       function addSalasComerciaisLayer() {
         map.addSource("salas_comerciais", {
@@ -428,7 +446,7 @@
           type: "circle",
           source: "salas_comerciais",
           paint: {
-            "circle-radius": 4,
+            "circle-radius": circle_radius,
             "circle-color": "#007bff",
           },
         });
@@ -485,7 +503,7 @@
           type: "circle",
           source: "estabelecimentos",
           paint: {
-            "circle-radius": 4,
+            "circle-radius": circle_radius,
             "circle-color": "#ff0000",
           },
         });
@@ -756,11 +774,8 @@
         }
       });
 
-      // Evento ao passar o mouse sobre os pontos de estabelecimentos
-      map.on("mouseenter", "estabelecimentos-layer", (e) => {
-        // Alterar o cursor para pointer
-        map.getCanvas().style.cursor = "pointer";
-
+      // Function to create popups for "estabelecimentos-layer"
+      const showEstabelecimentosPopup = (e) => {
         // Recuperar as propriedades do ponto
         const properties = e.features[0].properties;
 
@@ -772,23 +787,21 @@
           .setLngLat(e.lngLat) // Definir a posição do popup no ponto
           .setHTML(
             `<strong>Atividade:</strong> ${properties.atividade || "N/A"}<br>
-              <strong>Endereço:</strong> ${properties.endereco || "N/A"}<br>
-              <strong>Bairro:</strong> ${properties.bairro || "N/A"}`
+       <strong>Endereço:</strong> ${properties.endereco || "N/A"}<br>
+       <strong>Bairro:</strong> ${properties.bairro || "N/A"}`
           )
           .addTo(map); // Adicionar o popup ao mapa
 
-        // Remover o popup quando o mouse sair da área do ponto
-        map.on("mouseleave", "estabelecimentos-layer", () => {
-          map.getCanvas().style.cursor = "";
-          estabelecimentos_popup.remove(); // Remover o popup
-        });
-      });
+        if (!isTouchDevice) {
+          map.on("mouseleave", "estabelecimentos-layer", () => {
+            map.getCanvas().style.cursor = "";
+            estabelecimentos_popup.remove();
+          });
+        }
+      };
 
-      // Adicionar evento de hover para a camada de salas comerciais
-      map.on("mouseenter", "salas-comerciais-layer", (e) => {
-        // Alterar o cursor para pointer
-        map.getCanvas().style.cursor = "pointer";
-
+      // Function to create popups for "salas-comerciais-layer"
+      const showSalasComerciaisPopup = (e) => {
         // Recuperar as propriedades do ponto
         const properties = e.features[0].properties;
 
@@ -797,31 +810,27 @@
           closeButton: true,
           closeOnClick: true,
         })
-          .setLngLat(e.lngLat)
+          .setLngLat(e.lngLat) // Definir a posição do popup no ponto
           .setHTML(
             `<strong>Tipo:</strong> ${properties.finalidade}<br>
-              <strong>Endereço:</strong> ${properties.endereco || "N/A"}<br>
-              <strong>Bairro:</strong> ${properties.bairro || "N/A"}<br>
-              <strong>Área m²:</strong> ${
-                properties.area || "Não disponível"
-              }<br>
-              <strong>Valor imóvel:</strong> ${
-                properties.valor || "Não disponível"
-              }`
+       <strong>Endereço:</strong> ${properties.endereco || "N/A"}<br>
+       <strong>Bairro:</strong> ${properties.bairro || "N/A"}<br>
+       <strong>Área m²:</strong> ${properties.area || "Não disponível"}<br>
+       <strong>Valor imóvel:</strong> ${properties.valor || "Não disponível"}`
           )
           .addTo(map);
 
-        // Remover o popup quando o mouse sair da área do ponto
-        map.on("mouseleave", "salas-comerciais-layer", () => {
-          map.getCanvas().style.cursor = "";
-          salas_popup.remove();
-        });
-      });
+        if (!isTouchDevice) {
+          map.on("mouseleave", "salas-comerciais-layer", () => {
+            map.getCanvas().style.cursor = "";
+            salas_popup.remove();
+          });
+        }
+      };
 
-      let populacao_popup; // Variável global para o popup
-
-      // Adicionar evento de clique para a camada de população
-      map.on("click", "populacao-layer", (e) => {
+      // Function to create popups for "populacao-layer"
+      let populacao_popup;
+      const showPopulacaoPopup = (e) => {
         // Verificar se o clique foi em uma feature (polígono)
         if (e.features.length > 0) {
           const properties = e.features[0].properties;
@@ -841,21 +850,46 @@
               `<strong>População:</strong> ${
                 properties.populacao || "Não disponível"
               }<br>
-                <strong>Área:</strong> ${
-                  properties.area || "Não disponível"
-                }<br>
-                <strong>Densidade Populacional:</strong> ${
-                  properties.densidade || "Não disponível"
-                }<br>
-                <strong>Bairro:</strong> ${
-                  properties.bairro || "Não disponível"
-                }`
+        <strong>Área:</strong> ${properties.area || "Não disponível"}<br>
+        <strong>Densidade Populacional:</strong> ${
+          properties.densidade || "Não disponível"
+        }<br>
+        <strong>Bairro:</strong> ${properties.bairro || "Não disponível"}`
             )
             .addTo(map);
         }
+      };
+
+      // Evento para hover ou clique em "estabelecimentos-layer"
+      map.on(
+        isTouchDevice ? "click" : "mouseenter",
+        "estabelecimentos-layer",
+        (e) => {
+          // Alterar o cursor para pointer
+          map.getCanvas().style.cursor = "pointer";
+
+          showEstabelecimentosPopup(e);
+        }
+      );
+
+      // Evento para hover ou clique em "salas-comerciais-layer"
+      map.on(
+        isTouchDevice ? "click" : "mouseenter",
+        "salas-comerciais-layer",
+        (e) => {
+          // Alterar o cursor para pointer
+          map.getCanvas().style.cursor = "pointer";
+
+          showSalasComerciaisPopup(e);
+        }
+      );
+
+      // Evento de clique para "populacao-layer"
+      map.on("click", "populacao-layer", (e) => {
+        showPopulacaoPopup(e);
       });
 
-      // Evento de mouseleave para limpar o cursor quando sair da camada
+      // Evento de mouseleave para limpar o cursor quando sair da camada "populacao-layer"
       map.on("mouseleave", "populacao-layer", () => {
         map.getCanvas().style.cursor = ""; // Restaurar o cursor
       });
