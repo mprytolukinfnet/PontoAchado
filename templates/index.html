@@ -809,6 +809,7 @@
         const salas_popup = new maplibregl.Popup({
           closeButton: true,
           closeOnClick: true,
+          anchor: 'top',
         })
           .setLngLat(e.lngLat) // Definir a posição do popup no ponto
           .setHTML(
