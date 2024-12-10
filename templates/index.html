@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Mapa 3D - População</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Roboto", sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+        color: #333;
+      }
+      h1,
+      h2,
+      h3 {
+        font-weight: 500;
+        color: #2c3e50;
+      }
+      html,
+      body,
+      #map {
+        height: 100%;
+      }
+      #controls {
+        position: absolute;
+        display: flex;
+        top: 10px;
+        left: 10px;
+        padding: 10px;
+        border-radius: 4px;
+        /* box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); */
+        z-index: 1;
+      }
+      #controls button {
+        font-size: 14px;
+        padding: 10px 15px;
+        background-color: #009688; /* Green color */
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+      }
+
+      #controls button:hover {
+        background-color: #00796b; /* Darker blue */
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      #controls button:disabled {
+        background-color: #b2dfdb;
+        cursor: not-allowed;
+      }
+
+      #estabelecimentos-list li {
+        display: flex;
+        align-items: center;
+        margin: 5px 0;
+      }
+      .inputLabel {
+        margin-left: 10px;
+        color: white;
+      }
+      .loader {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #009688;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        position: relative;
+        top: 7px;
+        left: 3px;
+        margin-right: 3px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      #info-overlay {
+        background-color: #ffffff;
+        max-width: 200px;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        font-size: 14px;
+        color: #333;
+        display: none;
+      }
+      #logo {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        width: auto; /* Adjust width as needed */
+        height: 50px; /* Adjust height as needed */
+        z-index: 999; /* Ensure logo stays on top */
+      }
+      input[type="text"] {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        width: 200px;
+        margin-right: 10px;
+        font-size: 14px;
+      }
+
+      input[type="text"]:focus {
+        outline: none;
+        border-color: #009688;
+      }
+
+      /* button,
+      input[type="text"],
+      #controls {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      } */
+
+      button:hover {
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      #logo {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        height: auto;
+        width: 12em;
+        z-index: 999;
+        transition: transform 0.3s ease;
+      }
+
+      #logo:hover {
+        transform: scale(1.05);
+      }
+
+      @media (max-width: 768px) {
+        #controls {
+          padding: 10px;
+          font-size: 12px;
+        }
+
+        #controls button,
+        input[type="text"] {
+          width: 100%;
+          margin-bottom: 8px;
+        }
+      }
+
+      button,
+      input[type="text"] {
+        transition: all 0.3s ease;
+      }
+
+      button:hover {
+        transform: translateY(-2px);
+      }
+
+      .filters {
+        margin-top: 1em;
+        /*max-height: 300px; /* Define uma altura máxima */
+        max-height: 75vh;
+        object-fit: cover;
+        overflow-y: auto; /* Barra de rolagem vertical */
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        background-color: rgba(0, 0, 0, 0.6);
+      }
+
+      #estabelecimentos-comerciais-filters{
+        max-width: min-content;
+      }
+
+      #collapsable-menu {
+        display: none;
+        margin-left: 0.5em;
+      }
+      /* Optional: For vertical scrollbar in .filters */
+      .filters::-webkit-scrollbar {
+        width: 10px;  
+      }
+
+      .filters::-webkit-scrollbar-thumb {
+        background-color: #009688;
+        border-radius: 10px;
+      }
+
+      .filters::-webkit-scrollbar-thumb:hover {
+        background-color: #00796b;
+      }
+
+      .filters::-webkit-scrollbar-track {
+        background-color: rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+      }
+
+      .maplibregl-popup-content {
+        background-color: rgba(178, 223, 219, 0.9);
+      }
+
+      .maplibregl-popup-anchor-bottom, .maplibregl-popup-tip{
+        border-top-color: rgba(178, 223, 219, 0.9) !important;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div id="controls">
+      <div id="toggle-container">
+      <button id="toggle-menu" onclick="toggleMenu()" style="display: none;">
+        <i class="fa fa-bars" aria-hidden="true"></i>
+      </button>
+      </div>
+      <div id="collapsable-menu">
+        <button id="toggle-populacao" disabled>Mostrar População</button>
+        <button id="toggle-salas-comerciais-menu" disabled>
+          Mostrar Salas Comerciais
+        </button>
+        <button id="toggle-estabelecimentos-comerciais-menu" disabled>
+          Mostrar Estabelecimentos Comerciais
+        </button>
+        <div
+          id="salas-comerciais-filters"
+          class="filters"
+          style="display: none"
+        >
+          <button id="toggle-all-salas">Marcar/Desmarcar Todos</button>
+          <ul
+            id="salas-comerciais-list"
+            style="list-style: none; padding: 0"
+          ></ul>
+        </div>
+
+        <div
+          id="estabelecimentos-comerciais-filters"
+          class="filters"
+          style="display: none"
+        >
+          <input
+            type="text"
+            id="busca_atividade"
+            placeholder="Digite a atividade"
+          />
+          <button id="buscar">Buscar</button>
+          <button id="clear-all-estabelecimentos">Desmarcar Todos</button>
+          <ul
+            id="estabelecimentos-list"
+            style="list-style: none; padding: 0"
+          ></ul>
+        </div>
+      </div>
+    </div>
+    <img id="logo" src="/static/logo.png" alt="PontoAchado Logo" />
+    <div id="map"></div>
+    <div
+      id="info-overlay"
+      style="
+        display: none;
+        position: absolute;
+        background: white;
+        padding: 10px;
+        border: 1px solid black;
+        z-index: 2;
+      "
+    ></div>
+    <script>
+      function toggleMenu() {
+        const controls = document.getElementById("collapsable-menu");
+        if (controls.style.display !== "inline-block") {
+          controls.style.display = "inline-block";
+        } else {
+          controls.style.display = "none";
+        }
+      }
+      const MAPTILER_KEY = "{{maptiler_key}}";
+      const map = new maplibregl.Map({
+        style: `https://api.maptiler.com/maps/basic-v2/style.json?key=${MAPTILER_KEY}`,
+        center: [-51.2155, -30.0335],
+        zoom: 15.5,
+        pitch: 45,
+        bearing: -17.6,
+        container: "map",
+        antialias: true,
+      });
+
+      // The 'building' layer in the streets vector source contains building-height
+      // data from OpenStreetMap.
+      map.on("load", () => {
+        // Insert the layer beneath any symbol layer.
+        const layers = map.getStyle().layers;
+
+        let labelLayerId;
+        for (let i = 0; i < layers.length; i++) {
+          if (layers[i].type === "symbol" && layers[i].layout["text-field"]) {
+            labelLayerId = layers[i].id;
+            break;
+          }
+        }
+
+        map.addSource("openmaptiles", {
+          url: `https://api.maptiler.com/tiles/v3/tiles.json?key=${MAPTILER_KEY}`,
+          type: "vector",
+        });
+
+        map.addLayer(
+          {
+            id: "3d-buildings",
+            source: "openmaptiles",
+            "source-layer": "building",
+            type: "fill-extrusion",
+            minzoom: 15,
+            filter: ["!=", ["get", "hide_3d"], true],
+            paint: {
+              "fill-extrusion-color": [
+                "interpolate",
+                ["linear"],
+                ["get", "render_height"],
+                0,
+                "lightgray",
+                200,
+                "royalblue",
+                400,
+                "lightblue",
+              ],
+              "fill-extrusion-height": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                15,
+                0,
+                16,
+                ["get", "render_height"],
+              ],
+              "fill-extrusion-base": [
+                "case",
+                [">=", ["get", "zoom"], 16],
+                ["get", "render_min_height"],
+                0,
+              ],
+            },
+          },
+          labelLayerId
+        );
+      });
+
+      // Make toggle buton visible
+      document.getElementById("toggle-menu").style.display = "block";
+
+      // Função para adicionar a camada de população
+      function addPopulacaoLayer() {
+        map.addSource("populacao", {
+          type: "geojson",
+          data: populacaoData,
+        });
+
+        map.addLayer({
+          id: "populacao-layer",
+          type: "fill",
+          source: "populacao",
+          paint: {
+            "fill-color": [
+              "interpolate",
+              ["linear"],
+              ["get", "populacao"],
+              0,
+              "lightgreen",
+              500,
+              "yellow",
+              1000,
+              "red",
+            ],
+            "fill-opacity": 0.6,
+          },
+        });
+
+        map.addLayer({
+          id: "populacao-border",
+          type: "line",
+          source: "populacao",
+          paint: {
+            "line-color": "black",
+            "line-width": 1,
+          },
+        });
+        map.setLayoutProperty("populacao-layer", "visibility", "none"); // Inicializa com visibilidade oculta
+        map.setLayoutProperty("populacao-border", "visibility", "none");
+        document.getElementById("toggle-populacao").disabled = false;
+      }
+
+      // Função para adicionar a camada de salas comerciais
+      function addSalasComerciaisLayer() {
+        map.addSource("salas_comerciais", {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: [],
+          },
+        });
+
+        map.addLayer({
+          id: "salas-comerciais-layer",
+          type: "circle",
+          source: "salas_comerciais",
+          paint: {
+            "circle-radius": 4,
+            "circle-color": "#007bff",
+          },
+        });
+
+        const finalidades = [
+          ...new Set(
+            salasComerciaisData.features.map(
+              (feature) => feature.properties.finalidade
+            )
+          ),
+        ].sort();
+
+        const listContainer = document.getElementById("salas-comerciais-list");
+
+        finalidades.forEach((finalidade) => {
+          const listItem = document.createElement("li");
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.id = `sala-comercial-${finalidade}`;
+          checkbox.value = finalidade;
+
+          const label = document.createElement("label");
+          label.htmlFor = checkbox.id;
+          label.textContent = finalidade;
+          label.className = "inputLabel";
+
+          listItem.appendChild(checkbox);
+          listItem.appendChild(label);
+          listContainer.appendChild(listItem);
+
+          checkbox.addEventListener("change", () => {
+            updateMapFilterSalas();
+          });
+        });
+
+        document.getElementById(
+          "toggle-salas-comerciais-menu"
+        ).disabled = false;
+      }
+
+      // Função para adicionar a camada de estabelecimentos comerciais
+      function addEstabelecimentosLayer() {
+        map.addSource("estabelecimentos", {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: [],
+          },
+        });
+
+        map.addLayer({
+          id: "estabelecimentos-layer",
+          type: "circle",
+          source: "estabelecimentos",
+          paint: {
+            "circle-radius": 4,
+            "circle-color": "#ff0000",
+          },
+        });
+
+        const atividades = [
+          ...new Set(
+            estabelecimentosData.features.map(
+              (feature) => feature.properties.atividade
+            )
+          ),
+        ].sort();
+
+        const listContainer = document.getElementById("estabelecimentos-list");
+
+        atividades.forEach((atividade) => {
+          const listItem = document.createElement("li");
+
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.id = `estabelecimento-${atividade}`;
+          checkbox.value = atividade;
+
+          const label = document.createElement("label");
+          label.htmlFor = checkbox.id;
+          label.textContent = atividade;
+          label.className = "inputLabel";
+
+          listItem.appendChild(checkbox);
+          listItem.appendChild(label);
+          listContainer.appendChild(listItem);
+
+          // Evento para reordenar a lista ao marcar/desmarcar
+          checkbox.addEventListener("change", () => {
+            reorderCheckboxes();
+
+            updateMapFilterEstabelecimentos();
+          });
+        });
+
+        document.getElementById(
+          "toggle-estabelecimentos-comerciais-menu"
+        ).disabled = false;
+      }
+
+      function updateMapFilterSalas() {
+        const checkboxes = document.querySelectorAll(
+          '#salas-comerciais-filters input[type="checkbox"]:checked'
+        );
+        const selectedTypes = Array.from(checkboxes).map(
+          (checkbox) => checkbox.value
+        );
+
+        const filteredData = {
+          type: "FeatureCollection",
+          features: salasComerciaisData.features.filter((feature) =>
+            selectedTypes.includes(feature.properties.finalidade)
+          ),
+        };
+
+        map.getSource("salas_comerciais").setData(filteredData);
+      }
+
+      function updateMapFilterEstabelecimentos() {
+        const checkboxes = document.querySelectorAll(
+          '#estabelecimentos-comerciais-filters input[type="checkbox"]:checked'
+        );
+        const selectedTypes = Array.from(checkboxes).map(
+          (checkbox) => checkbox.value
+        );
+
+        const filteredData = {
+          type: "FeatureCollection",
+          features: estabelecimentosData.features.filter((feature) =>
+            selectedTypes.includes(feature.properties.atividade)
+          ),
+        };
+
+        map.getSource("estabelecimentos").setData(filteredData);
+      }
+
+      function reorderCheckboxes() {
+        const list = document.getElementById("estabelecimentos-list");
+        const items = [...list.querySelectorAll("li")];
+
+        // Agrupar os itens em clicados e não clicados
+        const clickedItems = items.filter(
+          (item) => item.querySelector("input").checked
+        );
+        const uncheckedItems = items.filter(
+          (item) => !item.querySelector("input").checked
+        );
+
+        // Ordenar cada grupo alfabeticamente
+        clickedItems.sort((a, b) => {
+          const labelA = a.querySelector("label").textContent.toLowerCase();
+          const labelB = b.querySelector("label").textContent.toLowerCase();
+          return labelA.localeCompare(labelB);
+        });
+
+        uncheckedItems.sort((a, b) => {
+          const labelA = a.querySelector("label").textContent.toLowerCase();
+          const labelB = b.querySelector("label").textContent.toLowerCase();
+          return labelA.localeCompare(labelB);
+        });
+
+        // Combinar os grupos e adicionar à lista
+        list.append(...clickedItems, ...uncheckedItems);
+      }
+
+      fetch("/populacao")
+        .then((response) => response.json())
+        .then((data) => {
+          populacaoData = data;
+          addPopulacaoLayer();
+        });
+
+      fetch("/salas_comerciais")
+        .then((response) => response.json())
+        .then((data) => {
+          salasComerciaisData = data;
+          addSalasComerciaisLayer();
+        });
+
+      fetch("/estabelecimentos")
+        .then((response) => response.json())
+        .then((data) => {
+          estabelecimentosData = data;
+          addEstabelecimentosLayer();
+        });
+
+      document
+        .getElementById("toggle-populacao")
+        .addEventListener("click", () => {
+          const visibility = map.getLayoutProperty(
+            "populacao-layer",
+            "visibility"
+          );
+          const newVisibility = visibility === "visible" ? "none" : "visible";
+
+          map.setLayoutProperty("populacao-layer", "visibility", newVisibility);
+          map.setLayoutProperty(
+            "populacao-border",
+            "visibility",
+            newVisibility
+          );
+
+          document.getElementById("toggle-populacao").innerText =
+            newVisibility === "visible"
+              ? "Ocultar População"
+              : "Mostrar População";
+        });
+
+      const toggle_salas_button = document.getElementById(
+        "toggle-salas-comerciais-menu"
+      );
+      const toggle_estabelecimentos_button = document.getElementById(
+        "toggle-estabelecimentos-comerciais-menu"
+      );
+
+      toggle_salas_button.addEventListener("click", () => {
+        // Desativa estabelecimentos comerciais
+        toggle_estabelecimentos_button.style.backgroundColor = "";
+        document.getElementById(
+          "estabelecimentos-comerciais-filters"
+        ).style.display = "none";
+        // Toggle salas comerciais
+        const filtersDiv = document.getElementById("salas-comerciais-filters");
+        const activateMenu = filtersDiv.style.display === "none";
+        toggle_salas_button.style.backgroundColor = activateMenu
+          ? "#00796b"
+          : "";
+        filtersDiv.style.display = activateMenu ? "block" : "none";
+      });
+
+      document
+        .getElementById("toggle-all-salas")
+        .addEventListener("click", () => {
+          const checkboxes = document.querySelectorAll(
+            '#salas-comerciais-filters input[type="checkbox"]'
+          );
+          const isChecked = checkboxes[0].checked; // Verifica se o primeiro checkbox está marcado
+
+          checkboxes.forEach((checkbox) => {
+            checkbox.checked = !isChecked;
+          });
+
+          // Atualizar a filtragem do mapa (chamar a função que atualiza o filtro)
+          updateMapFilterSalas();
+        });
+
+      toggle_estabelecimentos_button.addEventListener("click", () => {
+        // Desativa salas comerciais
+        toggle_salas_button.style.backgroundColor = "";
+        document.getElementById("salas-comerciais-filters").style.display =
+          "none";
+        // Toggle estabelecimentos comerciais
+        const filtersDiv = document.getElementById(
+          "estabelecimentos-comerciais-filters"
+        );
+        const activateMenu = filtersDiv.style.display === "none";
+        toggle_estabelecimentos_button.style.backgroundColor = activateMenu
+          ? "#00796b"
+          : "";
+        filtersDiv.style.display = activateMenu ? "block" : "none";
+      });
+
+      document
+        .getElementById("clear-all-estabelecimentos")
+        .addEventListener("click", () => {
+          const checkboxes = document.querySelectorAll(
+            '#estabelecimentos-comerciais-filters input[type="checkbox"]'
+          );
+
+          checkboxes.forEach((checkbox) => {
+            checkbox.checked = false;
+          });
+
+          // Atualizar a filtragem do mapa (chamar a função que atualiza o filtro)
+          reorderCheckboxes();
+          updateMapFilterEstabelecimentos();
+        });
+
+      buscar_atividade_input = document.getElementById("busca_atividade");
+      buscar_atividade_btn = document.getElementById("buscar");
+
+      function buscar_atividade() {
+        const atividade = buscar_atividade_input.value;
+        if(atividade == '') return;
+        buscar_atividade_btn.disabled = true;
+        let spinner = document.createElement("div");
+        spinner.className = "loader";
+        buscar_atividade_btn.after(spinner);
+
+        fetch("/buscar_atividades", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ atividade }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            const atividades_similares = data.atividades;
+            atividades_similares.forEach((atividade) => {
+              const checkbox = document.getElementById(
+                `estabelecimento-${atividade}`
+              );
+              if (checkbox) {
+                checkbox.checked = true;
+              }
+            });
+            // Atualizar a filtragem do mapa
+            reorderCheckboxes();
+            updateMapFilterEstabelecimentos();
+            buscar_atividade_btn.disabled = false;
+            spinner.remove();
+            buscar_atividade_input.value = "";
+          });
+      }
+
+      buscar_atividade_btn.addEventListener("click", buscar_atividade);
+
+      // Buscar ao pressionar Enter no campo de busca
+      buscar_atividade_input.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          buscar_atividade_btn.click();
+        }
+      });
+
+      // Seleciona o elemento do overlay
+      const infoOverlay = document.getElementById("info-overlay");
+
+      // Evento ao passar o mouse sobre os pontos de estabelecimentos
+      map.on("mouseenter", "estabelecimentos-layer", (e) => {
+        map.getCanvas().style.cursor = "pointer";
+
+        // Obtém as propriedades do ponto
+        const properties = e.features[0].properties;
+
+        // Preenche o conteúdo do overlay
+        infoOverlay.innerHTML = `
+            <strong>Atividade:</strong> ${properties.atividade || "N/A"}<br>
+            <strong>Endereço:</strong> ${properties.endereco || "N/A"}<br>
+            <strong>Bairro:</strong> ${properties.bairro || "N/A"}
+          `;
+
+        // Posiciona o overlay próximo ao cursor
+        infoOverlay.style.display = "block";
+        infoOverlay.style.left = `${e.originalEvent.pageX + 10}px`;
+        infoOverlay.style.top = `${e.originalEvent.pageY + 10}px`;
+      });
+
+      // Evento ao mover o mouse para fora dos pontos
+      map.on("mouseleave", "estabelecimentos-layer", () => {
+        map.getCanvas().style.cursor = "";
+        infoOverlay.style.display = "none";
+      });
+
+      // Atualiza a posição do overlay durante o movimento
+      map.on("mousemove", "estabelecimentos-layer", (e) => {
+        infoOverlay.style.left = `${e.originalEvent.pageX + 10}px`;
+        infoOverlay.style.top = `${e.originalEvent.pageY + 10}px`;
+      });
+
+      // Adicionar evento de hover para a camada de salas comerciais
+      map.on("mouseenter", "salas-comerciais-layer", (e) => {
+        // Alterar o cursor para pointer
+        map.getCanvas().style.cursor = "pointer";
+
+        // Recuperar as propriedades do ponto
+        const properties = e.features[0].properties;
+
+        // Criar o popup com as informações
+        const popup = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+        })
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<strong>Tipo:</strong> ${properties.finalidade}<br>
+              <strong>Endereço:</strong> ${properties.endereco || "N/A"}<br>
+              <strong>Bairro:</strong> ${properties.bairro || "N/A"}<br>
+              <strong>Área m²:</strong> ${
+                properties.area || "Não disponível"
+              }<br>
+              <strong>Valor imóvel:</strong> ${
+                properties.valor || "Não disponível"
+              }`
+          )
+          .addTo(map);
+
+        // Remover o popup quando o mouse sair da área do ponto
+        map.on("mouseleave", "salas-comerciais-layer", () => {
+          map.getCanvas().style.cursor = "";
+          popup.remove();
+        });
+      });
+
+      let popup; // Variável global para o popup
+
+      // Adicionar evento de clique para a camada de população
+      map.on("click", "populacao-layer", (e) => {
+        // Verificar se o clique foi em uma feature (polígono)
+        if (e.features.length > 0) {
+          const properties = e.features[0].properties;
+
+          // Criar ou atualizar o popup com as informações de população
+          if (!popup) {
+            popup = new maplibregl.Popup({
+              closeButton: true, // Habilitar botão de fechar
+              closeOnClick: true, // Fechar o popup ao clicar fora
+            }).addTo(map);
+          }
+
+          // Definir a posição do popup e conteúdo
+          popup
+            .setLngLat(e.lngLat)
+            .setHTML(
+              `<strong>População:</strong> ${
+                properties.populacao || "Não disponível"
+              }<br>
+                <strong>Área:</strong> ${
+                  properties.area || "Não disponível"
+                }<br>
+                <strong>Densidade Populacional:</strong> ${
+                  properties.densidade || "Não disponível"
+                }<br>
+                <strong>Bairro:</strong> ${
+                  properties.bairro || "Não disponível"
+                }`
+            )
+            .addTo(map);
+        }
+      });
+
+      // Evento de mouseleave para limpar o cursor quando sair da camada
+      map.on("mouseleave", "populacao-layer", () => {
+        map.getCanvas().style.cursor = ""; // Restaurar o cursor
+      });
+    </script>
+  </body>
+</html>
